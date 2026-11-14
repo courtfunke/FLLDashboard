@@ -96,6 +96,8 @@
     "Legacy Builders", "MARS Eagles", "Master KARDS", "Phoenix Phorce", "Roz",
     "Short Circuit", "Solar Stars", "Terrabyte Titans"
   ];
+  // Shorter names to show in the column headers (matching still uses the full names above).
+  var DISPLAY_NAMES = { "Error 404: Chicken Not Found": "Error 404: CNF" };
   var SOURCES = [
     { key: "table",  label: "Last Table Run",          id: "1utrkYE3YpWn-AKgY5lhoFmQ7FGvEQHhXBwFSDBGJVdA" },
     { key: "ip",     label: "Last IP Check",           id: "17Zh7LJiQbFs-sLiwTmg5WTq3Ex5H8j_lyTsZL25y7Js" },
@@ -152,7 +154,7 @@
       col.className = "team";
       var h = document.createElement("h2");
       var nm = document.createElement("span");
-      nm.textContent = team;
+      nm.textContent = DISPLAY_NAMES[team] || team;
       var at = document.createElement("span");
       at.className = "att";
       at.id = "att-" + i;
