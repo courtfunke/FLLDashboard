@@ -47,7 +47,7 @@
     margin: 0; background: var(--head); color: var(--head-ink);
     font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-weight: 700;
     font-size: clamp(14px, 1.45vw, 21px); line-height: 1.1; padding: 8px 4px; text-align: center;
-    min-height: 98px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    min-height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
     border-radius: 4px; overflow-wrap: anywhere;
   }
   .team h2 .att {
@@ -56,9 +56,13 @@
     background: rgba(255,255,255,.2); border-radius: 10px; padding: 3px 9px;
   }
   .team h2 .att:empty { display: none; }
-  .team h2 .evt { display: flex; flex-direction: column; gap: 1px; font-family: "Barlow", system-ui, sans-serif; line-height: 1.1; }
-  .team h2 .evt .loc { font-size: clamp(11px, 1vw, 14px); font-weight: 500; opacity: .92; }
-  .team h2 .evt .when { font-size: clamp(12px, 1.1vw, 15px); font-weight: 700; }
+  .team h2 .evt {
+    display: block; width: 100%; text-align: center; overflow: hidden; white-space: nowrap;
+    font-family: "Barlow", system-ui, sans-serif; font-size: clamp(10px, 1vw, 14px); line-height: 1.2;
+  }
+  .team h2 .evt .loc { font-weight: 500; opacity: .92; }
+  .team h2 .evt .when { font-weight: 700; }
+  .team h2 .evt .when:not(:empty)::before { content: " \00b7 "; font-weight: 500; }
   .cell {
     background: var(--cell); border: 1px solid var(--line); border-radius: 4px;
     padding: 7px 6px 8px; text-align: center; min-height: 82px;
@@ -315,6 +319,7 @@
       var evEl = document.getElementById("evt-" + i);
       evEl.querySelector(".loc").textContent = tv ? tv.loc : "";
       evEl.querySelector(".when").textContent = tv ? tv.date : "";
+      fitLine(evEl);
       SOURCES.forEach(function (src) {
         var el = document.getElementById("c-" + i + "-" + src.key);
         var dateEl = el.querySelector(".date");
@@ -338,6 +343,13 @@
         agoEl.textContent = agoText(n);
       });
     });
+  }
+
+  // Shrinks a one-line label until it fits its column.
+  function fitLine(el) {
+    el.style.fontSize = "";
+    var fs = parseFloat(getComputedStyle(el).fontSize);
+    while (el.scrollWidth > el.clientWidth && fs > 8) { fs -= 0.5; el.style.fontSize = fs + "px"; }
   }
 
   function updateNote() {
@@ -466,6 +478,7 @@
   }
 
   build();
+  window.addEventListener("resize", function () { render(); });
   render();
   refresh();
   setInterval(refresh, REFRESH_SECONDS * 1000);
