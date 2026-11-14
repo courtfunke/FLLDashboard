@@ -17,6 +17,7 @@
     --ok: #e3f1e6;
     --ok-ink: #14532d;
     --late: #c8281e;
+    --next: #2a9d55;
     --late-ink: #ffffff;
   }
   @media (prefers-color-scheme: dark) {
@@ -34,6 +35,7 @@
   .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
   .sw.ok { background: var(--ok); outline: 1px solid var(--ok-ink); }
   .sw.late { background: var(--late); }
+  .sw.next { background: var(--next); }
   #status { font-size: 13px; color: var(--muted); }
   #status.err { color: var(--late); font-weight: 600; }
 
@@ -60,7 +62,9 @@
     display: block; width: 100%; text-align: center; overflow: hidden; white-space: nowrap;
     font-family: "Barlow", system-ui, sans-serif; font-size: clamp(10px, 1vw, 14px); line-height: 1.2;
   }
+  .team h2 .evt.next { background: var(--next); color: #fff; border-radius: 9px; padding: 2px 4px; }
   .team h2 .evt .loc { font-weight: 500; opacity: .92; }
+  .team h2 .evt.next .loc { opacity: 1; }
   .team h2 .evt .when { font-weight: 700; }
   .team h2 .evt .when:not(:empty)::before { content: " \00b7 "; font-weight: 500; }
   .cell {
@@ -85,6 +89,7 @@
   <div class="legend">
     <span><i class="sw ok"></i>Within 7 days</span>
     <span><i class="sw late"></i>Over 7 days or none</span>
+    <span><i class="sw next"></i>Next tournament</span>
     <span id="attNote"></span>
     <span id="evtNote" style="color:var(--late)"></span>
     <span id="status">Loading…</span>
@@ -192,7 +197,7 @@
   }
 
   // Reads the tournament sheet: returns { teamName: { loc, date } }.
-  function parseTournaments(table) {
+  function parseTournaments(table, now) {
     var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     function text(c) {
       if (!c) return "";
@@ -208,13 +213,48 @@
       var m = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?$/);
       return m && +m[1] >= 1 && +m[1] <= 12 ? MONTHS[+m[1] - 1] + " " + (+m[2]) : t;
     }
+    // Real date for a cell. When no year is given, use this year unless that is long past.
+    function when(c) {
+      if (!c) return null;
+      var m = typeof c.v === "string" && c.v.match(/^Date\((\d+),(\d+),(\d+)/);
+      if (m) return new Date(+m[1], +m[2], +m[3]);
+      var t = text(c).match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+      if (!t) return null;
+      var y = t[3] ? (+t[3] < 100 ? 2000 + (+t[3]) : +t[3]) : now.getFullYear();
+      var d = new Date(y, +t[1] - 1, +t[2]);
+      if (!t[3] && now - d > 180 * 86400000) d = new Date(y + 1, +t[1] - 1, +t[2]);
+      return d;
+    }
     var out = {};
     (table.rows || []).forEach(function (r) {
       var c = r.c || [];
       var team = resolveTeam(text(c[0]));
-      if (team) out[team] = { loc: text(c[1]), date: nice(text(c[2])) };
+      if (team) out[team] = { loc: text(c[1]), date: nice(text(c[2])), when: when(c[2]) };
     });
     return out;
+  }
+
+  // Teams whose tournament is the next one on the calendar. A Fri-Sun weekend counts as
+  // one event, so teams playing Saturday and Sunday of the same weekend highlight together.
+  function nextTeams(tournaments, now) {
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    function weekendKey(d) {
+      var dow = d.getDay(), shift = dow === 0 ? -1 : (dow === 5 ? 1 : 0);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate() + shift).getTime();
+    }
+    var best = null, names = Object.keys(tournaments || {});
+    names.forEach(function (t) {
+      var w = tournaments[t].when;
+      if (w && w >= today && (!best || w < best)) best = w;
+    });
+    var set = {};
+    if (!best) return set;
+    var key = weekendKey(best);
+    names.forEach(function (t) {
+      var w = tournaments[t].when;
+      if (w && weekendKey(w) === key) set[t] = true;
+    });
+    return set;
   }
 
   // Reads the attendance sheet. Finds the most recent date column (today or earlier)
@@ -309,6 +349,7 @@
   }
 
   function render() {
+    var nextSet = nextTeams(tournaments, new Date());
     TEAMS.forEach(function (team, i) {
       var key = norm(team);
       var attEl = document.getElementById("att-" + i);
@@ -317,6 +358,7 @@
       attEl.title = cnt ? "Checked in on " + fmtDate(attendance.date) : "";
       var tv = tournaments && tournaments[team];
       var evEl = document.getElementById("evt-" + i);
+      evEl.className = "evt" + (nextSet[team] ? " next" : "");
       evEl.querySelector(".loc").textContent = tv ? tv.loc : "";
       evEl.querySelector(".when").textContent = tv ? tv.date : "";
       fitLine(evEl);
@@ -449,7 +491,7 @@
         clearTimeout(timer);
         var ok = false;
         if (resp && resp.status === "ok" && resp.table) {
-          try { tournaments = parseTournaments(resp.table); ok = true; } catch (e) { ok = false; }
+          try { tournaments = parseTournaments(resp.table, new Date()); ok = true; } catch (e) { ok = false; }
         }
         cleanup();
         resolve(ok);
