@@ -299,23 +299,22 @@
       if (team && name.trim()) members.push({ team: team, c: c });
     });
 
-    var endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    var best = null;
+    // Only today's column counts. If there is no column for today, attendance isn't being
+    // taken, so every team shows 0.
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var todayCol = null;
     dateCols.forEach(function (dc) {
-      if (dc.date > endOfToday) return;
-      var any = members.some(function (m) { return checked(m.c[dc.idx]); });
-      if (any && (!best || dc.date > best.date)) best = dc;
+      if (dc.date.getTime() === today.getTime()) todayCol = dc;
     });
-    if (!best) return null;
 
     var counts = {};
     members.forEach(function (m) {
       var k = m.team;
       counts[k] = counts[k] || { present: 0, total: 0 };
       counts[k].total++;
-      if (checked(m.c[best.idx])) counts[k].present++;
+      if (todayCol && checked(m.c[todayCol.idx])) counts[k].present++;
     });
-    return { date: best.date, counts: counts };
+    return { date: today, taken: !!todayCol, counts: counts };
   }
 
   function parseCell(cell) {
@@ -399,7 +398,7 @@
     var el = document.getElementById("attNote");
     if (attendanceFailed) { el.textContent = "Attendance unavailable"; el.style.color = "var(--late)"; return; }
     el.style.color = "";
-    el.textContent = attendance ? "Attendance for " + fmtDate(attendance.date) : "No attendance checked yet";
+    el.textContent = !attendance ? "" : (attendance.taken ? "Attendance for " + fmtDate(attendance.date) : "No attendance taken today");
   }
 
   function setStatus(msg, isErr) {
